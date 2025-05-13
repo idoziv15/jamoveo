@@ -6,6 +6,8 @@ import api from '../utils/api'
 
 export const MainAdmin: FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -14,10 +16,15 @@ export const MainAdmin: FC = () => {
     if (!searchQuery.trim()) return
 
     try {
+      setError(null)
+      setIsLoading(true)
       const response = await api.get(`/songs/search?q=${encodeURIComponent(searchQuery)}`)
-      navigate('/results', { state: { songs: response.data.songs } })
-    } catch (err) {
+      navigate('/results', { state: { songs: response.data.data.songs } })
+    } catch (err: any) {
       console.error('Failed to search songs:', err)
+      setError(err.response?.data?.message || 'Failed to search songs. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -36,18 +43,29 @@ export const MainAdmin: FC = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setError(null)
+                }}
                 placeholder="Enter song name or artist..."
                 className="w-full px-4 py-2 text-xl rounded-lg border-2 border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none"
                 required
+                disabled={isLoading}
               />
             </div>
 
+            {error && (
+              <div className="text-red-500 text-sm text-center">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-primary text-white text-lg rounded-lg hover:bg-primary/90 transition-colors"
+              className="w-full py-3 px-4 bg-primary text-white text-lg rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLoading}
             >
-              Search
+              {isLoading ? 'Searching...' : 'Search'}
             </button>
           </form>
 

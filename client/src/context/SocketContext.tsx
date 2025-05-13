@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, type FC, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import socket from '../utils/socket'
+import socket, { updateSocketAuth } from '../utils/socket'
 import { useAuth } from './AuthContext'
 import type { Song } from '../types'
 
@@ -24,10 +24,13 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: FC<SocketProviderProps> = ({ children }) => {
-  const { user } = useAuth()
+  const { user, token } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
+    // Update socket authentication when token changes
+    updateSocketAuth(token)
+
     function onConnect() {
       console.log('Connected to socket server')
       if (user) {
@@ -37,6 +40,13 @@ export const SocketProvider: FC<SocketProviderProps> = ({ children }) => {
 
     function onDisconnect() {
       console.log('Disconnected from socket server')
+    }
+
+    function onError(error: Error) {
+      console.error('Socket error:', error)
+      if (error.message.includes('authentication')) {
+        socket.disconnect()
+      }
     }
 
     function onSongSelected(song: Song) {
@@ -49,16 +59,19 @@ export const SocketProvider: FC<SocketProviderProps> = ({ children }) => {
 
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
+    socket.on('connect_error', onError)
     socket.on('song:selected', onSongSelected)
     socket.on('session:ended', onSessionEnded)
 
     return () => {
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
+      socket.off('connect_error', onError)
       socket.off('song:selected', onSongSelected)
       socket.off('session:ended', onSessionEnded)
+      socket.disconnect()
     }
-  }, [user, navigate])
+  }, [user, token, navigate])
 
   return (
     <SocketContext.Provider value={{ socket, isConnected: socket.connected }}>
