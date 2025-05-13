@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import { AdminSignup } from './pages/AdminSignup'
@@ -6,9 +6,13 @@ import { MainPlayer } from './pages/MainPlayer'
 import { MainAdmin } from './pages/MainAdmin'
 import { Results } from './pages/Results'
 import { Live } from './pages/Live'
-// Import other pages as they are implemented
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 export const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Navigate to="/login" replace />,
+  },
   {
     path: '/login',
     element: <Login />,
@@ -23,19 +27,35 @@ export const router = createBrowserRouter([
   },
   {
     path: '/player',
-    element: <MainPlayer />,
+    element: (
+      <ProtectedRoute>
+        <MainPlayer />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/admin',
-    element: <MainAdmin />,
+    element: (
+      <ProtectedRoute requireAdmin>
+        <MainAdmin />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/results',
-    element: <Results />,
+    element: (
+      <ProtectedRoute requireAdmin>
+        <Results />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/live',
-    element: <Live />,
+    element: (
+      <ProtectedRoute>
+        <Live />
+      </ProtectedRoute>
+    ),
   },
   // Add other routes as pages are implemented
 ]) 
