@@ -1,0 +1,73 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Other files to ignore
+dist/
+build/
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.vs/
+
+# TypeScript build info
+*.tsbuildinfo
+node_modules/.tmp/
+
+# Testing
+coverage/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Production build files
+dist-ssr/
+*.local
+
+# Temporary files
+.temp
+.tmp
+.cache
+
+# Dependency directories
+/.pnp
+.pnp.js
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
+# React and Vite specific
+*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
