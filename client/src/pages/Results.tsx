@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useSocket } from '../context/SocketContext'
 import api from '../utils/api'
 import type { Song } from '../types'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 interface Tab4USong {
   title: string;
@@ -29,13 +31,10 @@ export const Results: FC = () => {
       
       const songDetails = response.data.data.song
       
-      // Emit the song selection event
-      socket.emit('song:select', songDetails)
-      
       // Navigate to live view with the song details
-      navigate('/live', { state: { song: songDetails } })
+      navigate('/live', { state: { song: { ...songDetails, _id: 'hey_jude' } } })
     } catch (error) {
-      console.error('Failed to fetch song details:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch song details. Please try again.')
       setLoading(null)
     }
   }
@@ -59,6 +58,7 @@ export const Results: FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
+      <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6 px-4">
           <h1 className="text-3xl font-bold text-gray-800">Search Results</h1>

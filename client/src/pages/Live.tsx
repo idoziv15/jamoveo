@@ -4,7 +4,24 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useSocket } from '../context/SocketContext'
 import { useAuth } from '../context/AuthContext'
 import { AutoScrollToggle } from '../components/AutoScrollToggle'
+import { ParticipantsList } from '../components/ParticipantsList'
+import { toast } from 'react-toastify'
 import type { Song, User } from '../types'
+
+interface Participant {
+  username: string;
+  instrument: string;
+  isAdmin: boolean;
+}
+
+interface SongLine {
+  lyrics: string;
+  chords: string;
+}
+
+interface SongWithLines extends Omit<Song, 'lyrics' | 'chords'> {
+  lines: SongLine[];
+}
 
 export const Live: FC = () => {
   const location = useLocation()
@@ -13,14 +30,81 @@ export const Live: FC = () => {
   const { user } = useAuth()
   const contentRef = useRef<HTMLDivElement>(null)
   const [isAutoScrolling, setIsAutoScrolling] = useState(false)
-  const song = location.state?.song as Song
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [currentSong, setCurrentSong] = useState<SongWithLines | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const typedUser = user as User | null
 
   useEffect(() => {
-    if (!song) {
-      navigate(typedUser?.isAdmin ? '/admin' : '/player')
+    if (!socket) {
+      setError('Socket connection not available')
+      setIsLoading(false)
+      return
     }
-  }, [song, navigate, typedUser])
+
+    // Handle current session state
+    socket.on('session:current_state', (songData: SongWithLines) => {
+      console.log('Received current state:', songData)
+      setCurrentSong(songData)
+      setIsLoading(false)
+    })
+
+    // Handle song selection updates
+    socket.on('session:song_selected', (songData: SongWithLines) => {
+      console.log('Received song selection:', songData)
+      setCurrentSong(songData)
+      setIsLoading(false)
+    })
+
+    // Handle session end
+    socket.on('session:ended', () => {
+      toast.info('Session has ended')
+      navigate(typedUser?.isAdmin ? '/admin' : '/player')
+    })
+
+    // Handle errors
+    socket.on('error', (error: { message: string }) => {
+      toast.error(error.message)
+      if (error.message.includes('No admin present')) {
+        navigate('/player')
+      }
+    })
+
+    // If admin and we have a song from location state, start the session
+    if (typedUser?.isAdmin && location.state?.song) {
+      // Send only the song ID for selection
+      socket.emit('song:select', location.state.song._id || 'hey_jude')
+    }
+    // Join session if not admin
+    else if (!typedUser?.isAdmin) {
+      socket.emit('session:join')
+    }
+
+    setIsLoading(false)
+
+    return () => {
+      socket.off('session:current_state')
+      socket.off('session:song_selected')
+      socket.off('session:ended')
+      socket.off('error')
+    }
+  }, [socket, navigate, typedUser, location.state])
+
+  useEffect(() => {
+    if (!socket) return
+
+    const handleParticipants = (updatedParticipants: Participant[]) => {
+      console.log('Received participants update:', updatedParticipants)
+      setParticipants(updatedParticipants)
+    }
+
+    socket.on('session:participants', handleParticipants)
+
+    return () => {
+      socket.off('session:participants', handleParticipants)
+    }
+  }, [socket])
 
   useEffect(() => {
     let scrollInterval: number | null = null
@@ -41,53 +125,96 @@ export const Live: FC = () => {
   }, [isAutoScrolling])
 
   const handleQuit = () => {
-    socket.emit('session:end')
+    if (typedUser?.isAdmin) {
+      socket?.emit('session:end')
+    } else {
+      socket?.emit('session:leave')
+    }
     navigate(typedUser?.isAdmin ? '/admin' : '/player')
   }
 
-  if (!song) return null
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl">Loading session...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl text-red-600">{error}</div>
+      </div>
+    )
+  }
+
+  if (!currentSong) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl">No active session</div>
+      </div>
+    )
+  }
 
   const showChords = typedUser?.instrument !== 'vocals'
 
   return (
-    <div className="live-page">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-4xl font-bold">{song.title}</h1>
-            <p className="text-xl text-gray-600">{song.artist}</p>
-          </div>
-          {typedUser?.isAdmin && (
-            <button
-              onClick={handleQuit}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+    <div className="live-page p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-start gap-6">
+          <div className="flex-grow">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-4xl font-bold">{currentSong.title}</h1>
+                <p className="text-xl text-gray-600">{currentSong.artist}</p>
+              </div>
+              <button
+                onClick={handleQuit}
+                className={`px-4 py-2 text-white rounded-lg ${
+                  typedUser?.isAdmin 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-gray-600 hover:bg-gray-700'
+                }`}
+              >
+                {typedUser?.isAdmin ? 'End Session' : 'Exit Session'}
+              </button>
+            </div>
+
+            <div
+              ref={contentRef}
+              className="bg-white rounded-lg shadow-lg p-8 max-h-[70vh] overflow-y-auto"
             >
-              Quit Session
-            </button>
+              <div className="font-mono whitespace-pre-wrap">
+                {currentSong.lines?.map((line, index) => (
+                  <div key={index} className="mb-8">
+                    {showChords && line.chords && (
+                      <div className="text-blue-600 h-6">
+                        {line.chords}
+                      </div>
+                    )}
+                    <div className="text-gray-800">
+                      {line.lyrics}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <AutoScrollToggle
+                isActive={isAutoScrolling}
+                onToggle={() => setIsAutoScrolling(!isAutoScrolling)}
+              />
+            </div>
+          </div>
+
+          {typedUser?.isAdmin && (
+            <div className="flex-shrink-0">
+              <ParticipantsList participants={participants} />
+            </div>
           )}
         </div>
-
-        <div
-          ref={contentRef}
-          className="bg-white rounded-lg shadow-lg p-8 max-h-[70vh] overflow-y-auto"
-          style={{
-            fontSize: '1.25rem',
-            lineHeight: '1.75',
-            color: '#111827',
-            backgroundColor: '#ffffff',
-          }}
-        >
-          {showChords ? (
-            <div className="whitespace-pre-wrap font-mono">{song.chords}</div>
-          ) : (
-            <div className="whitespace-pre-wrap">{song.lyrics}</div>
-          )}
-        </div>
-
-        <AutoScrollToggle
-          isActive={isAutoScrolling}
-          onToggle={() => setIsAutoScrolling(!isAutoScrolling)}
-        />
       </div>
     </div>
   )

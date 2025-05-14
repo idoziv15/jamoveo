@@ -3,6 +3,62 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const logger = require('../utils/logger');
 const config = require('../config/config');
+const Song = require('../models/Song');
+const fs = require('fs').promises;
+const path = require('path');
+
+// Helper function to get song details
+const getSongDetails = async (songId) => {
+  try {
+    const filePath = path.join(__dirname, '..', `${songId}.json`);
+    const songData = await fs.readFile(filePath, 'utf-8');
+    const rawSongData = JSON.parse(songData);
+
+    // Process the raw song data
+    const processedLines = rawSongData.map(line => {
+      // Calculate positions for lyrics and chords
+      let chordsLine = '';
+      let currentPosition = 0;
+      
+      // First build the lyrics line
+      const lyricsLine = line.map(word => word.lyrics).join(' ');
+      
+      // Then place chords at correct positions
+      line.forEach((word, index) => {
+        // Calculate the position where this word starts
+        const wordStart = index === 0 ? 0 : lyricsLine.indexOf(word.lyrics, currentPosition);
+        
+        // If this word has a chord, add spaces until its position and then add the chord
+        if (word.chords) {
+          // Pad with spaces until the word position
+          while (chordsLine.length < wordStart) {
+            chordsLine += ' ';
+          }
+          chordsLine += word.chords;
+        }
+        
+        // Update current position to after this word
+        currentPosition = wordStart + word.lyrics.length;
+      });
+      
+      return {
+        lyrics: lyricsLine,
+        chords: chordsLine
+      };
+    });
+
+    // Create the formatted song object
+    return {
+      _id: songId,
+      title: songId === 'hey_jude' ? 'Hey Jude' : 'ואיך שלא',
+      artist: songId === 'hey_jude' ? 'The Beatles' : 'אביתר בנאי',
+      lines: processedLines
+    };
+  } catch (err) {
+    logger.error('Error getting song details:', err);
+    return null;
+  }
+};
 
 // Authenticate socket connection
 const authenticateSocket = async (socket, next) => {
@@ -38,81 +94,191 @@ const authenticateSocket = async (socket, next) => {
 const handleSocket = (io) => {
   io.use(authenticateSocket);
 
+  // Keep track of active session and participants
+  let activeSession = null;
+  const participants = new Map();
+
+  const hasAdminParticipant = () => {
+    return Array.from(participants.values()).some(p => p.isAdmin);
+  };
+
+  const broadcastParticipants = () => {
+    if (!activeSession) return;
+    
+    const participantsList = Array.from(participants.values()).map(p => ({
+      username: p.username,
+      instrument: p.instrument,
+      isAdmin: p.isAdmin
+    }));
+
+    io.emit('session:participants', participantsList);
+    logger.info(`Broadcasting ${participantsList.length} participants`);
+  };
+
+  const endSession = () => {
+    activeSession = null;
+    participants.clear();
+    // First broadcast the session end event
+    io.emit('session:ended');
+    // Then force null state to all clients
+    io.emit('session:current_state', null);
+    // Force disconnect all clients from the session
+    io.emit('session:force_clear');
+    logger.info('Session ended and all clients notified');
+  };
+
+  const removeParticipant = (socketId) => {
+    if (participants.has(socketId)) {
+      const participant = participants.get(socketId);
+      participants.delete(socketId);
+      logger.info(`Removed participant: ${participant.username}`);
+      
+      // If no admin is left and session is active, end the session
+      if (!hasAdminParticipant() && activeSession) {
+        endSession();
+      } else if (activeSession) {
+        broadcastParticipants();
+      }
+    }
+  };
+
   io.on('connection', (socket) => {
     logger.info(`User connected: ${socket.user.username}`);
 
-    // Join session room
-    socket.on('join:session', async (sessionId) => {
+    // Handle get current session state
+    socket.on('session:get_current', () => {
+      // Double check if session is actually active
+      if (!activeSession || !hasAdminParticipant()) {
+        socket.emit('session:current_state', null);
+        // Only log if state changed from active to null
+        if (socket.lastKnownState !== null) {
+          logger.info(`Sent null state to ${socket.user.username} - no active session or admin`);
+          socket.lastKnownState = null;
+        }
+        return;
+      }
+      
+      // Only send and log if state has changed
+      if (socket.lastKnownState !== activeSession._id) {
+        // Send current session state
+        socket.emit('session:current_state', activeSession);
+        
+        // Also send participants list to ensure UI is in sync
+        const participantsList = Array.from(participants.values()).map(p => ({
+          username: p.username,
+          instrument: p.instrument,
+          isAdmin: p.isAdmin
+        }));
+        socket.emit('session:participants', participantsList);
+        
+        logger.info(`Sent current session state to ${socket.user.username}: ${activeSession.title}`);
+        socket.lastKnownState = activeSession._id;
+      }
+    });
+
+    // Handle song selection (admin only)
+    socket.on('song:select', async (songId) => {
       try {
-        const session = await Session.findById(sessionId);
-        if (!session || session.status !== 'active') {
-          socket.emit('error', { message: 'Invalid session' });
+        if (!socket.user.isAdmin) {
+          socket.emit('error', { message: 'Only admins can select songs' });
           return;
         }
 
-        socket.join(`session:${sessionId}`);
-        logger.info(`${socket.user.username} joined session room: ${sessionId}`);
-
-        // Notify others in the session
-        socket.to(`session:${sessionId}`).emit('user:joined', {
-          username: socket.user.username,
-          instrument: socket.user.instrument
-        });
-      } catch (error) {
-        logger.error('Error joining session:', error);
-        socket.emit('error', { message: 'Failed to join session' });
-      }
-    });
-
-    // Leave session room
-    socket.on('leave:session', async (sessionId) => {
-      try {
-        socket.leave(`session:${sessionId}`);
-        logger.info(`${socket.user.username} left session room: ${sessionId}`);
-
-        // Notify others in the session
-        socket.to(`session:${sessionId}`).emit('user:left', {
-          username: socket.user.username
-        });
-      } catch (error) {
-        logger.error('Error leaving session:', error);
-      }
-    });
-
-    // Handle scroll position updates
-    socket.on('scroll:update', async (data) => {
-      try {
-        const { sessionId, position } = data;
-        socket.to(`session:${sessionId}`).emit('scroll:sync', {
-          position,
-          username: socket.user.username
-        });
-      } catch (error) {
-        logger.error('Error syncing scroll:', error);
-      }
-    });
-
-    // Handle session end
-    socket.on('session:end', async (sessionId) => {
-      try {
-        const session = await Session.findById(sessionId);
-        if (!session) return;
-
-        if (session.admin.toString() === socket.user._id.toString()) {
-          session.status = 'ended';
-          session.endedAt = Date.now();
-          await session.save();
-
-          io.to(`session:${sessionId}`).emit('session:ended');
-          logger.info(`Session ended: ${sessionId}`);
+        // Get and process song details
+        const songDetails = await getSongDetails(songId);
+        if (!songDetails) {
+          socket.emit('error', { message: 'Failed to load song details' });
+          return;
         }
+
+        // Update active session
+        activeSession = songDetails;
+        
+        // Add admin to participants
+        participants.set(socket.id, {
+          id: socket.user._id,
+          username: socket.user.username,
+          instrument: socket.user.instrument,
+          isAdmin: socket.user.isAdmin
+        });
+
+        // Broadcast new session to all clients
+        logger.info('Broadcasting new session to all clients');
+        
+        // First broadcast song selection event
+        io.emit('session:song_selected', songDetails);
+        
+        // Then broadcast current state to ensure all clients are updated
+        io.emit('session:current_state', songDetails);
+        
+        // Finally broadcast new session notification
+        io.emit('session:new', songDetails);
+        
+        // Broadcast participants list
+        broadcastParticipants();
+        
+        logger.info(`New session started by admin ${socket.user.username}: ${songDetails.title}`);
+      } catch (error) {
+        logger.error('Error handling song selection:', error);
+        socket.emit('error', { message: 'Failed to select song' });
+      }
+    });
+
+    // Handle user joining session
+    socket.on('session:join', () => {
+      if (!activeSession) {
+        socket.emit('error', { message: 'No active session to join' });
+        return;
+      }
+
+      // Check if there's an admin in the session
+      if (!hasAdminParticipant()) {
+        socket.emit('error', { message: 'Cannot join session: No admin present' });
+        socket.emit('session:current_state', null);
+        return;
+      }
+
+      // Add user to participants
+      participants.set(socket.id, {
+        id: socket.user._id,
+        username: socket.user.username,
+        instrument: socket.user.instrument,
+        isAdmin: socket.user.isAdmin
+      });
+
+      // Send current session state to joining user
+      socket.emit('session:current_state', activeSession);
+      
+      // Broadcast updated participants list
+      broadcastParticipants();
+      
+      logger.info(`User ${socket.user.username} joined the session`);
+    });
+
+    // Handle user leaving session
+    socket.on('session:leave', () => {
+      removeParticipant(socket.id);
+      logger.info(`User ${socket.user.username} left the session`);
+    });
+
+    // Handle session end (admin only)
+    socket.on('session:end', () => {
+      try {
+        if (!socket.user.isAdmin) {
+          socket.emit('error', { message: 'Only admins can end sessions' });
+          return;
+        }
+
+        endSession();
       } catch (error) {
         logger.error('Error ending session:', error);
+        socket.emit('error', { message: 'Failed to end session' });
       }
     });
 
     // Handle disconnection
     socket.on('disconnect', () => {
+      removeParticipant(socket.id);
       logger.info(`User disconnected: ${socket.user.username}`);
     });
   });

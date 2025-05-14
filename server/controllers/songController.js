@@ -2,6 +2,8 @@ const Song = require('../models/Song');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const tab4uService = require('../services/tab4uService');
+const path = require('path');
+const fs = require('fs').promises;
 
 // Create a new song
 exports.createSong = async (req, res, next) => {
@@ -123,21 +125,45 @@ exports.deleteSong = async (req, res, next) => {
 // Search songs
 exports.searchSongs = async (req, res, next) => {
   try {
-    const query = req.query.q;
+    const query = req.query.q?.toLowerCase();
     if (!query) {
       return next(new AppError('Please provide a search query', 400));
     }
 
     // Search Tab4U
-    const tab4uResults = await tab4uService.searchSongs(query);
-    
+    // const tab4uResults = await tab4uService.searchSongs(query);
+    // const chordieResults = await tab4uService.scrapeChordie(query);
+    // logger.info(chordieResults);
+
+    // Define available songs
+    const availableSongs = [
+      {
+        title: 'ואיך שלא',
+        artist: 'אביתר בנאי',
+        url: 'veech_shelo',
+        source: 'local'
+      },
+      {
+        title: 'Hey Jude',
+        artist: 'The Beatles',
+        url: 'hey_jude',
+        source: 'local'
+      }
+    ];
+
     // Format results
-    const songs = tab4uResults.map(song => ({
-      title: song.title,
-      artist: song.artist,
-      url: song.url,
-      source: 'tab4u'
-    }));
+    // const songs = tab4uResults.map(song => ({
+    //   title: song.title,
+    //   artist: song.artist,
+    //   url: song.url,
+    //   source: 'tab4u'
+    // }));
+
+    // Filter songs based on search query
+    const songs = availableSongs.filter(song => 
+      song.title.toLowerCase().includes(query) || 
+      song.artist.toLowerCase().includes(query)
+    );
 
     res.status(200).json({
       status: 'success',
@@ -158,12 +184,59 @@ exports.getSongDetails = async (req, res, next) => {
       return next(new AppError('Please provide a song URL', 400));
     }
 
-    const songDetails = await tab4uService.getSongDetails(url);
+    // const songDetails = await tab4uService.getSongDetails(url);
     
-    res.status(200).json({
-      status: 'success',
-      data: { song: songDetails }
-    });
+    // res.status(200).json({
+    //   status: 'success',
+    //   data: { song: songDetails }
+    // });
+
+    // Read the corresponding JSON file
+    const filePath = path.join(__dirname, '..', `${url}.json`);
+    
+    try {
+      const songData = await fs.readFile(filePath, 'utf-8');
+      const rawSongData = JSON.parse(songData);
+
+      // Format the song data
+      const lyrics = [];
+      const chords = [];
+
+      // Process each line
+      rawSongData.forEach(line => {
+        const lineWords = [];
+        const lineChords = [];
+
+        line.forEach(word => {
+          lineWords.push(word.lyrics);
+          if (word.chords) {
+            lineChords.push(word.chords);
+          } else {
+            lineChords.push('');
+          }
+        });
+
+        lyrics.push(lineWords.join(' '));
+        chords.push(lineChords.join(' '));
+      });
+
+      // Create the formatted song object
+      const songDetails = {
+        _id: url, // Use URL as ID since we don't have a real DB ID
+        title: url === 'hey_jude' ? 'Hey Jude' : 'ואיך שלא',
+        artist: url === 'hey_jude' ? 'The Beatles' : 'אביתר בנאי',
+        lyrics: lyrics.join('\n'),
+        chords: chords.join('\n'),
+        content: lyrics.join('\n') // For backward compatibility
+      };
+
+      res.status(200).json({
+        status: 'success',
+        data: { song: songDetails }
+      });
+    } catch (err) {
+      return next(new AppError('Song not found', 404));
+    }
   } catch (error) {
     logger.error('Error fetching song details:', error);
     next(error);

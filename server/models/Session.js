@@ -2,9 +2,8 @@ const mongoose = require('mongoose');
 
 const sessionSchema = new mongoose.Schema({
   song: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Song',
-    required: true
+    type: String,
+    required: false
   },
   admin: {
     type: mongoose.Schema.Types.ObjectId,

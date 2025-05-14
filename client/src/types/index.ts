@@ -8,12 +8,12 @@ export interface User {
 }
 
 export interface Song {
-  id: string;
+  _id: string;
   title: string;
   artist: string;
-  imageUrl?: string;
   lyrics: string;
   chords: string;
+  content?: string;
 }
 
 export interface AuthResponse {
