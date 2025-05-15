@@ -160,8 +160,8 @@ exports.searchSongs = async (req, res, next) => {
     // }));
 
     // Filter songs based on search query
-    const songs = availableSongs.filter(song => 
-      song.title.toLowerCase().includes(query) || 
+    const songs = availableSongs.filter(song =>
+      song.title.toLowerCase().includes(query) ||
       song.artist.toLowerCase().includes(query)
     );
 
@@ -185,7 +185,7 @@ exports.getSongDetails = async (req, res, next) => {
     }
 
     // const songDetails = await tab4uService.getSongDetails(url);
-    
+
     // res.status(200).json({
     //   status: 'success',
     //   data: { song: songDetails }
@@ -193,7 +193,7 @@ exports.getSongDetails = async (req, res, next) => {
 
     // Read the corresponding JSON file
     const filePath = path.join(__dirname, '..', `${url}.json`);
-    
+
     try {
       const songData = await fs.readFile(filePath, 'utf-8');
       const rawSongData = JSON.parse(songData);

@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import type { Instrument } from '../types'
 import api from '../utils/api'
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 
 const INSTRUMENTS: Instrument[] = ['drums', 'guitar', 'bass', 'saxophone', 'keyboard', 'vocals']
 
 export const AdminSignup: FC = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [instrument, setInstrument] = useState<Instrument>('guitar')
   const [error, setError] = useState('')
   const { login } = useAuth()
@@ -63,14 +65,27 @@ export const AdminSignup: FC = () => {
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              required
-            />
+            <div className="relative mt-1">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 pr-10"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3"
+              >
+                {showPassword ? (
+                  <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-500" />
+                ) : (
+                  <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-500" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div>
