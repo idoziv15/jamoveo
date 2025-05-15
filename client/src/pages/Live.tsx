@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import type { FC } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useSocket } from '../context/SocketContext'
@@ -14,13 +14,19 @@ interface Participant {
   isAdmin: boolean;
 }
 
-interface SongLine {
-  lyrics: string;
-  chords: string;
+interface Chord {
+  text: string;
+  position: number;
+}
+
+interface SongLineFormatted {
+  type: 'lyrics' | 'chords';
+  content: string;
+  positions?: Chord[];
 }
 
 interface SongWithLines extends Omit<Song, 'lyrics' | 'chords'> {
-  lines: SongLine[];
+  lines: SongLineFormatted[];
 }
 
 export const Live: FC = () => {
@@ -52,7 +58,8 @@ export const Live: FC = () => {
 
     // Handle song selection updates
     socket.on('session:song_selected', (songData: SongWithLines) => {
-      console.log('Received song selection:', songData)
+      console.log("📥 Got session:song_selected!", songData);
+      console.log("🧪 Song lines:", songData?.lines);
       setCurrentSong(songData)
       setIsLoading(false)
     })
@@ -73,8 +80,16 @@ export const Live: FC = () => {
 
     // If admin and we have a song from location state, start the session
     if (typedUser?.isAdmin && location.state?.song) {
-      // Send only the song ID for selection
-      socket.emit('song:select', location.state.song._id || 'hey_jude')
+      const song = location.state.song;
+      console.log('Trying to emit song:select event with:', song)
+      if (song.source === 'local') {
+        // For local songs, use the song ID
+        socket.emit('song:select', song._id || song.url)
+      } else {
+        // For external songs, use the URL
+        console.log("📤 Emitting song:select with:", song.url);
+        socket.emit('song:select', song.url)
+      }
     }
     // Join session if not admin
     else if (!typedUser?.isAdmin) {
@@ -107,22 +122,22 @@ export const Live: FC = () => {
   }, [socket])
 
   useEffect(() => {
-    let scrollInterval: number | null = null
+    let scrollInterval: NodeJS.Timeout | null = null;
 
     if (isAutoScrolling && contentRef.current) {
       scrollInterval = setInterval(() => {
         if (contentRef.current) {
-          contentRef.current.scrollTop += 1
+          contentRef.current.scrollTop += 1;
         }
-      }, 50)
+      }, 50);
     }
 
     return () => {
       if (scrollInterval) {
-        clearInterval(scrollInterval)
+        clearInterval(scrollInterval);
       }
-    }
-  }, [isAutoScrolling])
+    };
+  }, [isAutoScrolling]);
 
   const handleQuit = () => {
     if (typedUser?.isAdmin) {
@@ -132,6 +147,52 @@ export const Live: FC = () => {
     }
     navigate(typedUser?.isAdmin ? '/admin' : '/player')
   }
+
+  const renderLine = (line: any) => {
+    if (!line) return null;
+  
+    if (line.type === 'chords') {
+      const lineArray = Array(80).fill(' ');
+      line.positions.forEach(({ text, position }: any) => {
+        if (position < 80) {
+          lineArray[position] = text;
+        }
+      });
+  
+      return (
+        <pre className="text-blue-600 font-semibold leading-none">
+          {lineArray.join('')}
+        </pre>
+      );
+    }
+  
+    if (line.type === 'lyrics') {
+      return (
+        <pre className="leading-tight whitespace-pre-wrap">
+          {line.content}
+        </pre>
+      );
+    }
+  
+    return null;
+  };  
+  
+  const renderChordLine = (chords: Array<{ text: string; position: number }>) => {
+    const maxPos = Math.max(...chords.map(c => c.position + c.text.length), 30);
+    const lineArr = Array(maxPos).fill(' ');
+
+    chords.forEach(({ text, position }) => {
+      if (position < 0 || position >= lineArr.length) return;
+      for (let i = 0; i < text.length; i++) {
+        const idx = position + i;
+        if (idx < lineArr.length) {
+          lineArr[idx] = text[i];
+        }
+      }
+    });
+
+    return lineArr.join('');
+  }; 
 
   if (isLoading) {
     return (
@@ -164,53 +225,43 @@ export const Live: FC = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
           <div className="w-full md:w-auto">
-            <h1 className="text-2xl md:text-4xl font-bold break-words">{currentSong.title}</h1>
-            <p className="text-lg md:text-xl text-gray-600">{currentSong.artist}</p>
+            <h1 className="text-2xl md:text-4xl font-bold break-words">
+              {currentSong?.title}
+            </h1>
+            <h2 className="text-lg md:text-xl text-gray-600 mt-1">
+              {currentSong?.artist}
+            </h2>
           </div>
           <button
             onClick={handleQuit}
-            className={`w-full md:w-auto px-4 py-2 text-white rounded-lg ${
-              typedUser?.isAdmin 
-                ? 'bg-red-600 hover:bg-red-700' 
-                : 'bg-gray-600 hover:bg-gray-700'
+            className={`px-4 py-2 text-white rounded transition-colors ${
+              typedUser?.isAdmin ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-500 hover:bg-gray-600'
             }`}
           >
-            {typedUser?.isAdmin ? 'End Session' : 'Exit Session'}
+            {typedUser?.isAdmin ? 'End Session' : 'Leave Session'}
           </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-grow order-2 md:order-1">
-            <div
-              ref={contentRef}
-              className="bg-white rounded-lg shadow-lg p-4 md:p-8 max-h-[60vh] md:max-h-[70vh] overflow-y-auto"
-            >
-              <div className="font-mono whitespace-pre-wrap text-base md:text-lg">
-                {currentSong.lines?.map((line, index) => (
-                  <div key={index} className="mb-6 md:mb-8">
-                    {showChords && line.chords && (
-                      <div className="text-blue-600 h-6 text-sm md:text-base">
-                        {line.chords}
-                      </div>
-                    )}
-                    <div className="text-gray-800">
-                      {line.lyrics}
-                    </div>
-                  </div>
-                ))}
+        <div className="flex gap-6">
+          <div 
+            ref={contentRef}
+            className="flex-grow bg-white rounded-lg shadow-lg p-6 overflow-y-auto max-h-[calc(100vh-200px)]"
+          >
+            {(currentSong as any)?.lines?.filter(Boolean).map((line, index) => (
+              <div key={index}>
+                {renderLine(line)}
               </div>
-            </div>
-
-            <div className="mt-4">
-              <AutoScrollToggle
-                isActive={isAutoScrolling}
-                onToggle={() => setIsAutoScrolling(!isAutoScrolling)}
-              />
-            </div>
+            ))}
           </div>
 
-          <div className="flex-shrink-0 order-1 md:order-2 w-full md:w-auto md:min-w-[250px]">
+          <div className="w-64 flex-shrink-0">
             <ParticipantsList participants={participants} />
+            <div className="mt-4">
+              <AutoScrollToggle
+                isEnabled={isAutoScrolling}
+                onToggle={(enabled: boolean) => setIsAutoScrolling(enabled)}
+              />
+            </div>
           </div>
         </div>
       </div>

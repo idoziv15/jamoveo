@@ -1,13 +1,12 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import type { FC } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useSocket } from '../context/SocketContext'
 import api from '../utils/api'
-import type { Song } from '../types'
 import { toast, ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
-interface Tab4USong {
+interface SearchResult {
   title: string;
   artist: string;
   url: string;
@@ -18,21 +17,29 @@ export const Results: FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { socket } = useSocket()
-  const songs = location.state?.songs as Tab4USong[] || []
+  const songs = location.state?.songs as SearchResult[] || []
   const [loading, setLoading] = useState<string | null>(null)
 
-  const handleSelectSong = async (song: Tab4USong) => {
+  const handleSelectSong = async (song: SearchResult) => {
     try {
       setLoading(song.url)
-      // Fetch full song details
-      const response = await api.get('/songs/details', {
-        params: { url: song.url }
-      })
-      
-      const songDetails = response.data.data.song
-      
-      // Navigate to live view with the song details
-      navigate('/live', { state: { song: { ...songDetails, _id: 'hey_jude' } } })
+
+      if (song.source === 'local') {
+        // For local songs, use socket
+        if (!socket) {
+          throw new Error('Socket connection not available');
+        }
+        socket.emit('song:select', song.url);
+        navigate('/live', { state: { song } });
+      } else {
+        // For external songs, fetch details via API
+        const response = await api.get('/songs/song-details', {
+          params: { url: song.url }
+        });
+        
+        const songDetails = response.data.data;
+        navigate('/live', { state: { song: songDetails } });
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to fetch song details. Please try again.')
       setLoading(null)
@@ -71,7 +78,7 @@ export const Results: FC = () => {
         </div>
 
         <div className="grid gap-4 px-4">
-          {songs.map((song: Tab4USong) => (
+          {songs.map((song: SearchResult) => (
             <div
               key={song.url}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"

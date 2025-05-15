@@ -3,9 +3,10 @@ const User = require('../models/User');
 const Session = require('../models/Session');
 const logger = require('../utils/logger');
 const config = require('../config/config');
-const Song = require('../models/Song');
 const fs = require('fs').promises;
 const path = require('path');
+const songAPIService = require('../services/songAPIService');
+const { formatSongContent } = require('../controllers/songController');
 
 // Helper function to get song details
 const getSongDetails = async (songId) => {
@@ -179,40 +180,59 @@ const handleSocket = (io) => {
     // Handle song selection (admin only)
     socket.on('song:select', async (songId) => {
       try {
+        logger.info(`Received song:select event with ID/URL: ${songId}`);
         if (!socket.user.isAdmin) {
           socket.emit('error', { message: 'Only admins can select songs' });
           return;
         }
 
-        // Get and process song details
-        const songDetails = await getSongDetails(songId);
+        // Check if the songId is a URL (for external songs) or a local ID
+        const isUrl = songId.startsWith('http');        
+        // Get and process song details using the service
+        const songDetails = isUrl ? await songAPIService.getChordieSongWithPuppeteer(songId) : await songAPIService.getSongDetails(songId, 'local');
+
         if (!songDetails) {
           socket.emit('error', { message: 'Failed to load song details' });
           return;
         }
 
-        // Update active session
-        activeSession = songDetails;
+        logger.info(`🎸 Got song from Puppeteer: ${songDetails?.title}`);
+        logger.info(`🎼 Line preview: ${JSON.stringify(songDetails?.lines?.slice(0, 2))}`);
+
+        // Format the song content
+        const formattedLines = formatSongContent(
+          songDetails.lines,
+          socket.user.instrument !== 'vocals'
+        );        
+
+        // Update active session with the exact song details we got
+        activeSession = {
+          ...songDetails,
+          lines: formattedLines,
+          _id: songId,
+          source: isUrl ? new URL(songId).hostname : 'local'
+        };
         
-        // Add admin to participants
+        // Add admin to participants if not already present
         participants.set(socket.id, {
           id: socket.user._id,
           username: socket.user.username,
-          instrument: socket.user.instrument,
-          isAdmin: socket.user.isAdmin
+          isAdmin: socket.user.isAdmin,
+          instrument: socket.user.instrument
         });
 
         // Broadcast new session to all clients
-        logger.info('Broadcasting new session to all clients');
+        logger.info(`Broadcasting song: ${JSON.stringify(activeSession)}`);
         
         // First broadcast song selection event
-        io.emit('session:song_selected', songDetails);
+        logger.info(`📡 Emitting session:song_selected: ${activeSession?.title}`);
+        io.emit('session:song_selected', activeSession);
         
         // Then broadcast current state to ensure all clients are updated
-        io.emit('session:current_state', songDetails);
+        io.emit('session:current_state', activeSession);
         
         // Finally broadcast new session notification
-        io.emit('session:new', songDetails);
+        io.emit('session:new', activeSession);
         
         // Broadcast participants list
         broadcastParticipants();
@@ -220,7 +240,7 @@ const handleSocket = (io) => {
         logger.info(`New session started by admin ${socket.user.username}: ${songDetails.title}`);
       } catch (error) {
         logger.error('Error handling song selection:', error);
-        socket.emit('error', { message: 'Failed to select song' });
+        socket.emit('error', { message: `Failed to select song: ${error.message}` });
       }
     });
 

@@ -18,7 +18,7 @@ router.use(protect);
 // Routes accessible by all authenticated users
 router.get('/', getAllSongs);
 router.get('/search', searchSongs);
-router.get('/details', getSongDetails);
+router.get('/song-details', getSongDetails);
 router.get('/:id', getSong);
 
 // Routes that require either admin access or song ownership

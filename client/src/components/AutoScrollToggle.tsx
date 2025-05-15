@@ -1,32 +1,26 @@
-import type { FC } from 'react'
+import React from 'react';
 
 interface AutoScrollToggleProps {
-  isActive: boolean;
-  onToggle: () => void;
+  isEnabled: boolean;
+  onToggle: (enabled: boolean) => void;
 }
 
-export const AutoScrollToggle: FC<AutoScrollToggleProps> = ({ isActive, onToggle }) => {
+export const AutoScrollToggle: React.FC<AutoScrollToggleProps> = ({ isEnabled, onToggle }) => {
   return (
-    <button
-      onClick={onToggle}
-      className="auto-scroll-toggle"
-      aria-label="Toggle auto-scroll"
-      title="Toggle auto-scroll"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className={`h-6 w-6 transition-transform ${isActive ? 'rotate-180' : ''}`}
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => onToggle(!isEnabled)}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+          isEnabled ? 'bg-blue-600' : 'bg-gray-200'
+        }`}
       >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 14l-7 7m0 0l-7-7m7 7V3"
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            isEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
         />
-      </svg>
-    </button>
-  )
-} 
+      </button>
+      <span className="text-sm text-gray-600">Auto-scroll</span>
+    </div>
+  );
+}; 

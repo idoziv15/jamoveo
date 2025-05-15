@@ -1,7 +1,7 @@
 const Song = require('../models/Song');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
-const tab4uService = require('../services/tab4uService');
+const songAPIService = require('../services/songAPIService');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -23,19 +23,14 @@ exports.createSong = async (req, res, next) => {
   }
 };
 
-// Get all songs (with pagination and filtering)
+// Get all songs
 exports.getAllSongs = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const query = Song.find()
-      .sort('-createdAt')
-      .skip(skip)
-      .limit(limit)
-      .populate('createdBy', 'username');
-
+    const query = Song.find().sort('-createdAt').skip(skip).limit(limit).populate('createdBy', 'username');
     const songs = await query;
     const total = await Song.countDocuments();
 
@@ -130,34 +125,17 @@ exports.searchSongs = async (req, res, next) => {
       return next(new AppError('Please provide a search query', 400));
     }
 
-    // Search Tab4U
-    // const tab4uResults = await tab4uService.searchSongs(query);
-    // const chordieResults = await tab4uService.scrapeChordie(query);
-    // logger.info(chordieResults);
+    // Search with a API service
+    const availableSongs = await songAPIService.scrapeChordie(query);
 
-    // Define available songs
-    const availableSongs = [
-      {
-        title: 'ואיך שלא',
-        artist: 'אביתר בנאי',
-        url: 'veech_shelo',
-        source: 'local'
-      },
-      {
-        title: 'Hey Jude',
-        artist: 'The Beatles',
-        url: 'hey_jude',
-        source: 'local'
-      }
-    ];
-
-    // Format results
-    // const songs = tab4uResults.map(song => ({
-    //   title: song.title,
-    //   artist: song.artist,
-    //   url: song.url,
-    //   source: 'tab4u'
-    // }));
+    // const availableSongs = [
+    //   {
+    //     title: 'Hey Jude',
+    //     artist: 'The Beatles',
+    //     url: 'hey_jude',
+    //     source: 'local'
+    //   }
+    // ];
 
     // Filter songs based on search query
     const songs = availableSongs.filter(song =>
@@ -180,65 +158,85 @@ exports.searchSongs = async (req, res, next) => {
 exports.getSongDetails = async (req, res, next) => {
   try {
     const { url } = req.query;
+    const { instrument } = req.user;
+    
+    // Validate URL parameter
     if (!url) {
-      return next(new AppError('Please provide a song URL', 400));
+      return next(new AppError('URL parameter is required', 400));
     }
-
-    // const songDetails = await tab4uService.getSongDetails(url);
-
-    // res.status(200).json({
-    //   status: 'success',
-    //   data: { song: songDetails }
-    // });
-
-    // Read the corresponding JSON file
-    const filePath = path.join(__dirname, '..', `${url}.json`);
-
-    try {
-      const songData = await fs.readFile(filePath, 'utf-8');
-      const rawSongData = JSON.parse(songData);
-
-      // Format the song data
-      const lyrics = [];
-      const chords = [];
-
-      // Process each line
-      rawSongData.forEach(line => {
-        const lineWords = [];
-        const lineChords = [];
-
-        line.forEach(word => {
-          lineWords.push(word.lyrics);
-          if (word.chords) {
-            lineChords.push(word.chords);
-          } else {
-            lineChords.push('');
-          }
-        });
-
-        lyrics.push(lineWords.join(' '));
-        chords.push(lineChords.join(' '));
-      });
-
-      // Create the formatted song object
-      const songDetails = {
-        _id: url, // Use URL as ID since we don't have a real DB ID
-        title: url === 'hey_jude' ? 'Hey Jude' : 'ואיך שלא',
-        artist: url === 'hey_jude' ? 'The Beatles' : 'אביתר בנאי',
-        lyrics: lyrics.join('\n'),
-        chords: chords.join('\n'),
-        content: lyrics.join('\n') // For backward compatibility
-      };
-
-      res.status(200).json({
-        status: 'success',
-        data: { song: songDetails }
-      });
-    } catch (err) {
-      return next(new AppError('Song not found', 404));
-    }
+    
+    // Get raw song details from the service
+    const songData = await songAPIService.getChordieSongWithPuppeteer(url);
+    // logger.info(`--- Song Data IN CONTROLLER ---: ${JSON.stringify(songData)}`);
+    // logger.info(`Song lines: ${JSON.stringify(songData.lines)}`)
+    // Process the song content based on user type - show chords for all instruments except vocals
+    const processedContent = formatSongContent(songData.lines, instrument !== 'vocals');
+    // logger.info(`--- Processed Content IN CONTROLLER ---: ${JSON.stringify(processedContent)}`);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        ...songData,
+        lines: processedContent
+      }
+    });
   } catch (error) {
-    logger.error('Error fetching song details:', error);
+    logger.error('Error in getSongDetails controller:', error);
     next(error);
   }
-}; 
+};
+
+/**
+ * Formats song content based on whether chords should be displayed
+ * @param {Array} lines Array of line objects containing lyrics and chords
+ * @param {boolean} showChords Whether to show chords (true for players)
+ * @returns {Array} Formatted lines with proper positioning
+ */
+const formatSongContent = (lines, showChords) => {
+  // logger.info(`--- Lines IN CONTROLLER ---: ${JSON.stringify(lines)}`);
+  // logger.info(`--- Show Chords IN CONTROLLER ---: ${showChords}`);
+
+  if (!showChords) {
+    // For singers, return only lyrics
+    return lines.map(line => ({
+      type: 'lyrics',
+      content: line.lyrics || ''
+    }));
+  }
+
+  // For players, return both chords and lyrics
+  const formattedLines = [];
+
+  lines
+    .filter(line => line && typeof line === 'object')
+    .forEach(line => {
+      const safeChords = (line.chords || []).filter(
+        chord =>
+          chord &&
+          typeof chord.text === 'string' &&
+          chord.text.trim() !== '' &&
+          typeof chord.position === 'number' &&
+          chord.position >= 0
+      );
+
+      if (safeChords.length > 0) {
+        formattedLines.push({
+          type: 'chords',
+          content: '',
+          positions: safeChords.map(chord => ({
+            text: chord.text.trim(),
+            position: chord.position
+          }))
+        });
+      }
+
+      formattedLines.push({
+        type: 'lyrics',
+        content: line.lyrics || ''
+      });
+    });
+
+  return formattedLines;
+};
+
+exports.formatSongContent = formatSongContent;
