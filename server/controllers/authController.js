@@ -1,16 +1,14 @@
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
-const config = require('../config/config');
+const { signToken } = require('../utils/token');
 
-// Helper function to generate JWT token
-const signToken = (id) => {
-  return jwt.sign({ id }, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn
-  });
-};
-
+/**
+ * Endpoint for login users
+ * @param {object} req login request object
+ * @param {object} res response object
+ * @param {Function} next callback function
+ */
 exports.login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
@@ -49,6 +47,11 @@ exports.login = async (req, res, next) => {
   }
 };
 
+/**
+ * Gets current User details
+ * @param {object} req user request object
+ * @param {object} res response object
+ */
 exports.getCurrentUser = async (req, res) => {
   res.status(200).json({
     status: 'success',

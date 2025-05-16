@@ -1,65 +1,9 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Session = require('../models/Session');
 const logger = require('../utils/logger');
 const config = require('../config/config');
-const fs = require('fs').promises;
-const path = require('path');
 const songAPIService = require('../services/songAPIService');
 const { formatSongContent } = require('../controllers/songController');
-
-// Helper function to get song details
-const getSongDetails = async (songId) => {
-  try {
-    const filePath = path.join(__dirname, '..', `${songId}.json`);
-    const songData = await fs.readFile(filePath, 'utf-8');
-    const rawSongData = JSON.parse(songData);
-
-    // Process the raw song data
-    const processedLines = rawSongData.map(line => {
-      // Calculate positions for lyrics and chords
-      let chordsLine = '';
-      let currentPosition = 0;
-      
-      // First build the lyrics line
-      const lyricsLine = line.map(word => word.lyrics).join(' ');
-      
-      // Then place chords at correct positions
-      line.forEach((word, index) => {
-        // Calculate the position where this word starts
-        const wordStart = index === 0 ? 0 : lyricsLine.indexOf(word.lyrics, currentPosition);
-        
-        // If this word has a chord, add spaces until its position and then add the chord
-        if (word.chords) {
-          // Pad with spaces until the word position
-          while (chordsLine.length < wordStart) {
-            chordsLine += ' ';
-          }
-          chordsLine += word.chords;
-        }
-        
-        // Update current position to after this word
-        currentPosition = wordStart + word.lyrics.length;
-      });
-      
-      return {
-        lyrics: lyricsLine,
-        chords: chordsLine
-      };
-    });
-
-    // Create the formatted song object
-    return {
-      _id: songId,
-      title: songId === 'hey_jude' ? 'Hey Jude' : 'ואיך שלא',
-      artist: songId === 'hey_jude' ? 'The Beatles' : 'אביתר בנאי',
-      lines: processedLines
-    };
-  } catch (err) {
-    logger.error('Error getting song details:', err);
-    return null;
-  }
-};
 
 // Authenticate socket connection
 const authenticateSocket = async (socket, next) => {
@@ -189,15 +133,12 @@ const handleSocket = (io) => {
         // Check if the songId is a URL (for external songs) or a local ID
         const isUrl = songId.startsWith('http');        
         // Get and process song details using the service
-        const songDetails = isUrl ? await songAPIService.getChordieSongWithPuppeteer(songId) : await songAPIService.getSongDetails(songId, 'local');
+        const songDetails = isUrl ? await songAPIService.getSongDetails(songId) : await songAPIService.getSongDetails(songId, 'local');
 
         if (!songDetails) {
           socket.emit('error', { message: 'Failed to load song details' });
           return;
         }
-
-        logger.info(`🎸 Got song from Puppeteer: ${songDetails?.title}`);
-        logger.info(`🎼 Line preview: ${JSON.stringify(songDetails?.lines?.slice(0, 2))}`);
 
         // Format the song content
         const formattedLines = formatSongContent(
@@ -225,7 +166,6 @@ const handleSocket = (io) => {
         logger.info(`Broadcasting song: ${JSON.stringify(activeSession)}`);
         
         // First broadcast song selection event
-        logger.info(`📡 Emitting session:song_selected: ${activeSession?.title}`);
         io.emit('session:song_selected', activeSession);
         
         // Then broadcast current state to ensure all clients are updated

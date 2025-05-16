@@ -218,8 +218,6 @@ export const Live: FC = () => {
     )
   }
 
-  const showChords = typedUser?.instrument !== 'vocals'
-
   return (
     <div className="live-page p-4 md:p-6">
       <div className="max-w-6xl mx-auto">

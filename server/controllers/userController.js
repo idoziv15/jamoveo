@@ -1,15 +1,9 @@
 const User = require('../models/User');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
-const jwt = require('jsonwebtoken');
-const config = require('../config/config');
+const { signToken } = require('../utils/token');
 
-const signToken = (id) => {
-  return jwt.sign({ id }, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn
-  });
-};
-
+// Sing-up user
 exports.signup = async (req, res, next) => {
   try {
     const { username, password, instrument } = req.body;
@@ -47,6 +41,7 @@ exports.signup = async (req, res, next) => {
   }
 };
 
+// Sign-up admin user
 exports.signupAdmin = async (req, res, next) => {
   try {
     const { username, password, instrument } = req.body;
@@ -89,7 +84,6 @@ exports.updateProfile = async (req, res, next) => {
     const { username, instrument, currentPassword, newPassword } = req.body;
     const user = req.user;
 
-    // If updating password, verify current password
     if (newPassword) {
       if (!currentPassword) {
         return next(new AppError('Please provide current password', 400));
@@ -103,7 +97,6 @@ exports.updateProfile = async (req, res, next) => {
       user.password = newPassword;
     }
 
-    // Update other fields
     if (username) user.username = username;
     if (instrument) user.instrument = instrument === 'vocals' ? undefined : instrument;
 

@@ -2,8 +2,6 @@ const Song = require('../models/Song');
 const { AppError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const songAPIService = require('../services/songAPIService');
-const path = require('path');
-const fs = require('fs').promises;
 
 // Create a new song
 exports.createSong = async (req, res, next) => {
@@ -166,12 +164,9 @@ exports.getSongDetails = async (req, res, next) => {
     }
     
     // Get raw song details from the service
-    const songData = await songAPIService.getChordieSongWithPuppeteer(url);
-    // logger.info(`--- Song Data IN CONTROLLER ---: ${JSON.stringify(songData)}`);
-    // logger.info(`Song lines: ${JSON.stringify(songData.lines)}`)
+    const songData = await songAPIService.getSongDetails(url);
     // Process the song content based on user type - show chords for all instruments except vocals
     const processedContent = formatSongContent(songData.lines, instrument !== 'vocals');
-    // logger.info(`--- Processed Content IN CONTROLLER ---: ${JSON.stringify(processedContent)}`);
     
     res.status(200).json({
       success: true,
@@ -193,9 +188,6 @@ exports.getSongDetails = async (req, res, next) => {
  * @returns {Array} Formatted lines with proper positioning
  */
 const formatSongContent = (lines, showChords) => {
-  // logger.info(`--- Lines IN CONTROLLER ---: ${JSON.stringify(lines)}`);
-  // logger.info(`--- Show Chords IN CONTROLLER ---: ${showChords}`);
-
   if (!showChords) {
     // For singers, return only lyrics
     return lines.map(line => ({

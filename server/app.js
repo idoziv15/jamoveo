@@ -1,11 +1,9 @@
 const express = require('express')
-const mongoose = require('mongoose')
 const cors = require('cors')
 const { createServer } = require('http')
 const { Server } = require('socket.io')
 const config = require('./config/config')
 const errorHandler = require('./middleware/errorHandler')
-const logger = require('./utils/logger')
 
 // Import routes
 const authRoutes = require('./routes/authRoutes')

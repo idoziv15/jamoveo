@@ -20,3 +20,5 @@ export interface Song {
   playCount: number;
   tags: string[];
 } 
+
+export type Instrument = 'guitar' | 'drums' | 'vocals' | 'bass' | 'piano' | 'saxophone' | 'flute' | 'keyboard' | 'other';

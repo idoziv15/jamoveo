@@ -1,41 +1,40 @@
-version: '3.8'
+version: "3.9"
 
 services:
   server:
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
     environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/jamoveo
-      - JWT_SECRET=${JWT_SECRET}
-      - CLIENT_URL=http://localhost:5173
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGO_URI=mongodb://mongo:27017/jamoveo
     depends_on:
-      - mongodb
-    networks:
-      - app-network
+      - mongo
 
   client:
-    build: ./client
+    build:
+      context: .
+      dockerfile: client/Dockerfile
     ports:
       - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:3000
-    networks:
-      - app-network
+      - NODE_ENV=development
 
-  mongodb:
+  mongo:
     image: mongo:latest
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
-    networks:
-      - app-network
-
-networks:
-  app-network:
-    driver: bridge
+      - mongo-data:/data/db
 
 volumes:
-  mongodb_data: 
+  mongo-data:

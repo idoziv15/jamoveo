@@ -2,7 +2,7 @@ require('dotenv').config()
 const mongoose = require('mongoose')
 const config = require('./config/config')
 const logger = require('./utils/logger')
-const { app, httpServer } = require('./app')
+const { httpServer } = require('./app')
 
 // MongoDB connection
 mongoose.connect(config.mongoUri)

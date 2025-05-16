@@ -11,6 +11,12 @@ class SongAPIService {
     this.searchUrl = `${this.baseUrl}/last100`;
   }
 
+  /**
+   * Scrapes Chordie.com for a song
+   * @param {string} songName - The name of the song to search for
+   * @param {number} maxPages - The maximum number of pages to scrape
+   * @returns {Promise<Array>} An array of song details
+   */
   async scrapeChordie(songName, maxPages = 3) {
     const results = [];
     const pageSize = 5;
@@ -65,70 +71,6 @@ class SongAPIService {
     return results;
   }
 
-  // async scrapeTab4U(query) {
-  //   try {
-  //     logger.info(`Searching Tab4U for: ${query}`);
-      
-  //     const searchParams = {
-  //       search: query,
-  //       type: 'song'
-  //     };
-      
-  //     logger.info('Making request to Tab4U with params:', searchParams);
-      
-  //     const searchResponse = await axios.get(this.searchUrl, {
-  //       params: searchParams,
-  //       headers: {
-  //         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-  //         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-  //         'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
-  //         'Referer': this.baseUrl
-  //       }
-  //     });
-      
-  //     logger.info(searchResponse.data);
-  //     const $ = cheerio.load(searchResponse.data);
-  //     const songs = [];
-
-  //     $('.song_list_item').each((i, element) => {
-  //       const $element = $(element);
-  //       const songLink = $element.find('a.song_name');
-  //       const artistLink = $element.find('a.artist_name');
-        
-  //       const title = songLink.text().trim();
-  //       const href = songLink.attr('href');
-  //       const artist = artistLink.text().trim();
-        
-  //       logger.info('Processing song:', {
-  //         index: i,
-  //         title,
-  //         artist,
-  //         href
-  //       });
-        
-  //       if (title && href) {
-  //         const song = {
-  //           title,
-  //           artist: artist || 'Unknown Artist',
-  //           url: href.startsWith('http') ? href : `${this.baseUrl}${href}`
-  //         };
-  //         logger.info('Found song:', song);
-  //         songs.push(song);
-  //       }
-  //     });
-
-  //     logger.info(`Found ${songs.length} songs on Tab4U`);
-  //     return songs;
-  //   } catch (error) {
-  //     logger.error('Error searching Tab4U:', error.message);
-  //     if (error.response) {
-  //       logger.error('Response status:', error.response.status);
-  //       logger.error('Response data:', error.response.data);
-  //     }
-  //     throw error;
-  //   }
-  // }
-
   /**
    * Get song details either from local JSON or remote URL
    * @param {string} songIdentifier - Either a songId for local files or URL for remote songs
@@ -139,7 +81,7 @@ class SongAPIService {
       if (source === 'local') {
         return await this.getLocalSongDetails(songIdentifier);
       } else {
-        return await this.getRemoteSongDetails(songIdentifier);
+        return await this.getRemoteSongDetailsWithPuppeteer(songIdentifier);
       }
     } catch (error) {
       logger.error('Error in getSongDetails:', error);
@@ -199,7 +141,7 @@ class SongAPIService {
    * Get song details from remote URL
    * @param {string} url - The URL to fetch the song from
    */
-  async getRemoteSongDetails(url) {
+  async getRemoteSongDetailsWithCheerio(url) {
     try {
       if (!url) {
         throw new Error('URL is required');
@@ -324,7 +266,12 @@ class SongAPIService {
     }
   }
 
-  async getChordieSongWithPuppeteer(url) {
+  /**
+   * Get song details from remote URL using Puppeteer
+   * @param {string} url - The URL to fetch the song from
+   * @returns {Promise<Object>} The song details
+   */
+  async getRemoteSongDetailsWithPuppeteer(url) {
     const browser = await puppeteer.launch({ headless: "new" });
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
