@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const { createServer } = require('http')
 const { Server } = require('socket.io')
+const path = require('path');
 const config = require('./config/config')
 const errorHandler = require('./middleware/errorHandler')
 
@@ -30,6 +31,13 @@ app.use(express.json())
 app.use('/auth', authRoutes)
 app.use('/songs', songRoutes)
 app.use('/sessions', sessionRoutes)
+
+// Serve static frontend
+const clientBuildPath = path.join(__dirname, 'public');
+app.use(express.static(clientBuildPath));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
+});
 
 // Socket.io setup
 handleSocket(io)
