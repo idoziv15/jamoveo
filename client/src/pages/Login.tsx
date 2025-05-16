@@ -16,8 +16,10 @@ export const Login: FC = () => {
     e.preventDefault()
     console.log('🔁 Submit triggered')  // ADD THIS
     setError('')
+    console.log('🧪 Cleared error state'); 
 
     try {
+      console.log('📤 Sending login request to backend...'); 
       const response = await fetch('https://jamoveo.onrender.com/auth/login', {
         method: 'POST',
         headers: {
@@ -26,15 +28,19 @@ export const Login: FC = () => {
         credentials: 'include',
         body: JSON.stringify({ username, password }),
       })
-
+      console.log('📥 Received response:', response.status); 
       if (!response.ok) {
+        const text = await response.text();                   // ✅ Added
+        console.log('❌ Bad response:', text); 
         throw new Error('Login failed')
       }
 
       const data = await response.json()
+      console.log('✅ Logged in user:', data);
       login(data.token, data.user)
       navigate(data.user.isAdmin ? '/admin' : '/player')
     } catch (err) {
+      console.error('🚨 Caught error:', err); 
       setError('Invalid username or password')
     }
   }
