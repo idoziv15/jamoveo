@@ -4,11 +4,80 @@ const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
+const { OpenAI } = require('openai');
+require('dotenv').config();
 
 class SongAPIService {
   constructor() {
     this.baseUrl = 'https://www.tab4u.com';
     this.searchUrl = `${this.baseUrl}/last100`;
+    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+
+  /**
+   * Get song details from a screenshot using GPT
+   * @param {string} songUrl - The URL of the song to get details from
+   * @returns {Promise<Object>} The song details
+   */
+  async getSongFromScreenshotViaGPT(songUrl) {
+    const browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(songUrl, { waitUntil: 'networkidle', timeout: 60000 });
+  
+    // Take screenshot
+    const screenshotPath = path.join(__dirname, '../temp/song.png');
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    await browser.close();
+  
+    const imageBuffer = await fs.readFile(screenshotPath);
+  
+    // Ask GPT to extract structured lyrics/chords
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: 'system',
+          content: `You are a helpful assistant that extracts structured song content from screenshots. Given an image of a song page, extract the lyrics and chords line-by-line. Output an array where each item is an object with this shape:
+          {
+            lyrics: string,
+            chords: Array<{ text: string, position: number }>
+          }
+          The position refers to the character index in the lyrics line where the chord appears above.`,
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:image/png;base64,${imageBuffer.toString('base64')}` } }
+          ]
+        }
+      ],
+      max_tokens: 2000,
+    });
+  
+    let content = response.choices[0].message.content.trim();
+    if (content.startsWith('```json')) {
+      content = content.replace(/^```json/, '').replace(/```$/, '').trim();
+    }
+    const parsedRaw = JSON.parse(content);
+    // logger.info(`=== In songAPIService.js, getSongFromScreenshotViaGPT ===`, parsedRaw)
+    const linesFormatted = [];
+    for (const item of Object.values(parsedRaw)) {
+      linesFormatted.push(
+        { type: 'chords', content: '', positions: item.chords },
+        { type: 'lyrics', content: item.lyrics }
+      );
+    }
+    logger.info(`=== In songAPIService.js, getSongFromScreenshotViaGPT ===`, linesFormatted)
+  
+    return {
+      title: '',
+      artist: '',
+      lines: linesFormatted,
+      hasChords: linesFormatted.some(line => line.type === 'chords' && line.positions?.length),
+      source: 'Chordie.com',
+      url: songUrl,
+    };
   }
 
   /**
@@ -70,6 +139,48 @@ class SongAPIService {
   
     return results;
   }
+
+  /**
+   * Scrapes Tab4U.com for a song
+   * @param {string} query - The query to search for
+   * @returns {Promise<Array>} An array of song details
+   */
+  async scrapeTab4U(query) {
+    const browser = await puppeteer.launch({ headless: "new" });
+    let page;
+
+    try {
+      page = await browser.newPage();
+      const searchUrl = `https://www.tab4u.com/search.php?type=songs&search=${encodeURIComponent(query)}`;
+      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+      const results = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('table.results_table tr'));
+        return rows.map(row => {
+          const titleLink = row.querySelector('td:nth-child(1) a');
+          const artistCell = row.querySelector('td:nth-child(2)');
+
+          if (titleLink && artistCell) {
+            return {
+              title: titleLink.textContent.trim(),
+              artist: artistCell.textContent.trim(),
+              source: 'Tab4U',
+              url: `https://www.tab4u.com${titleLink.getAttribute('href')}`,
+            };
+          }
+
+          return null;
+        }).filter(Boolean);
+      });
+
+      return results;
+    } catch (err) {
+      logger.error(`❌ Failed to scrape Tab4U: ${err.message}`, { stack: err.stack });
+      throw new Error(`Tab4U scraping failed: ${err.message}`);
+    } finally {
+      if (browser) await browser.close();
+    }
+  }  
 
   /**
    * Get song details either from local JSON or remote URL
@@ -272,66 +383,102 @@ class SongAPIService {
    * @returns {Promise<Object>} The song details
    */
   async getRemoteSongDetailsWithPuppeteer(url) {
-    const browser = await puppeteer.launch({ headless: "new" });
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+  const browser = await puppeteer.launch({ headless: "new" });
+  const page = await browser.newPage();
+  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-    const result = await page.evaluate(() => {
-      const title = document.querySelector('h1')?.innerText.trim() || 'Unknown Title';
-      const artist = document.querySelector('h2')?.innerText.trim() || 'Unknown Artist';
+  const result = await page.evaluate(() => {
+    const title = document.querySelector('h1')?.innerText.trim() || 'Unknown Title';
+    const artist = document.querySelector('h2')?.innerText.trim() || 'Unknown Artist';
 
-      const lines = [];
-      const chordlineDivs = document.querySelectorAll('div.chordline');
+    const lines = [];
 
-      chordlineDivs.forEach(div => {
-        const chordSpans = Array.from(div.querySelectorAll('span'));
-        const chordLine = [];
-        let position = 0;
+    const chordlineDivs = Array.from(document.querySelectorAll('div.chordline'));
+    chordlineDivs.forEach(div => {
+      const chords = [];
+      let lyrics = '';
+      let cursor = 0;
 
-        let currentPos = 0;
-
-        chordSpans.forEach(span => {
-          const chord = span.textContent?.trim();
-
-          // Only keep valid chords
-          const isValidChord = /^[A-G][#b]?m?(add\d?|sus\d?|dim|aug)?(\/[A-G][#b]?)?$/.test(chord);
-
-          if (isValidChord) {
-            // Avoid pushing duplicate chords
-            if (!chordLine.find(c => c.text === chord && c.position === currentPos)) {
-              chordLine.push({ text: chord, position: currentPos });
-            }
-            currentPos += chord.length + 1;
-          } else {
-            currentPos += (chord?.length || 1);
+      div.childNodes.forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          // Add plain text to lyrics
+          lyrics += node.textContent;
+          cursor = lyrics.length;
+        } else if (
+          node.nodeType === Node.ELEMENT_NODE &&
+          node.classList.contains('relc') || node.classList.contains('inlc')
+        ) {
+          const chordText = node.textContent.trim();
+          if (chordText) {
+            chords.push({
+              text: chordText,
+              position: cursor
+            });
           }
-        });
-
-        lines.push({ lyrics: '', chords: chordLine });
-      });
-
-      const textlines = Array.from(document.querySelectorAll('div.textline'));
-      textlines.forEach((div, i) => {
-        const text = div.innerText.trim();
-        if (text && !text.match(/^Song Title:|Band Name:/)) {
-          lines[i] = lines[i] || { lyrics: '', chords: [] };
-          lines[i].lyrics = text;
         }
       });
 
+      if (lyrics.trim() || chords.length > 0) {
+        lines.push({ lyrics: lyrics.trim(), chords });
+      }
+    });
+
+    return {
+      title,
+      artist,
+      lines,
+      hasChords: lines.some(l => l.chords?.length),
+      source: 'Chordie.com',
+      url: window.location.href
+    };
+  });
+
+  await browser.close();
+  return result;
+}
+
+  /**
+   * Get song details from Tab4U.com
+   * @param {string} url - The URL to fetch the song from
+   * @returns {Promise<Object>} The song details
+   */
+  async getTab4USong(url) {
+    try {
+      const { data } = await axios.get(url);
+      const $ = cheerio.load(data);
+  
+      const title = $('h1').first().text().trim();
+      const artist = $('h2').first().text().trim();
+  
+      const lines = [];
+  
+      $('.song_line').each((i, el) => {
+        const lyrics = $(el).find('.lyrics').text().trim();
+        const chords = [];
+        
+        $(el).find('.chord').each((j, ch) => {
+          chords.push({
+            text: $(ch).text().trim(),
+            position: j * 5 
+          });
+        });
+  
+        lines.push({ lyrics, chords });
+      });
+  
       return {
         title,
         artist,
         lines,
-        hasChords: lines.some(l => l.chords?.length),
-        source: 'chordie.com',
-        url: window.location.href
+        hasChords: lines.some(l => l.chords.length),
+        source: 'Tab4U',
+        url
       };
-    });
-
-    await browser.close();
-    return result;
-  }
+    } catch (err) {
+      logger.error('Failed to fetch Tab4U song:', err);
+      throw new Error('Could not retrieve Tab4U song');
+    }
+  }  
 }
 
 module.exports = new SongAPIService(); 

@@ -133,7 +133,14 @@ const handleSocket = (io) => {
         // Check if the songId is a URL (for external songs) or a local ID
         const isUrl = songId.startsWith('http');        
         // Get and process song details using the service
-        const songDetails = isUrl ? await songAPIService.getSongDetails(songId) : await songAPIService.getSongDetails(songId, 'local');
+        const isHebrew = /[\u0590-\u05FF]/.test(songId);
+        const songDetails = isHebrew
+          ? await songAPIService.getTab4USong(songId)
+          : (isUrl
+              ? await songAPIService.getSongDetails(songId)
+              // ? await songAPIService.getSongFromScreenshotViaGPT(songId)
+              : await songAPIService.getSongDetails(songId, 'local')
+            );
 
         if (!songDetails) {
           socket.emit('error', { message: 'Failed to load song details' });
@@ -163,7 +170,7 @@ const handleSocket = (io) => {
         });
 
         // Broadcast new session to all clients
-        logger.info(`Broadcasting song: ${JSON.stringify(activeSession)}`);
+        logger.info(`Broadcasting song: ${JSON.stringify(activeSession._id)}`);
         
         // First broadcast song selection event
         io.emit('session:song_selected', activeSession);

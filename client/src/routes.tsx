@@ -61,6 +61,10 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: '/*',
+        element: <Navigate to="/login" replace />,
+      },
     ]
   }
 ]) 

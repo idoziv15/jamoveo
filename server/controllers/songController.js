@@ -118,13 +118,18 @@ exports.deleteSong = async (req, res, next) => {
 // Search songs
 exports.searchSongs = async (req, res, next) => {
   try {
-    const query = req.query.q?.toLowerCase();
+    const query = req.query.q;
     if (!query) {
       return next(new AppError('Please provide a search query', 400));
     }
 
+    // Check if the query contains Hebrew characters
+    const isHebrew = /[\u0590-\u05FF]/.test(query);
+
     // Search with a API service
-    const availableSongs = await songAPIService.scrapeChordie(query);
+    const availableSongs = isHebrew
+      ? await songAPIService.scrapeTab4U(query)
+      : await songAPIService.scrapeChordie(query.toLowerCase());
 
     // const availableSongs = [
     //   {
@@ -165,6 +170,7 @@ exports.getSongDetails = async (req, res, next) => {
     
     // Get raw song details from the service
     const songData = await songAPIService.getSongDetails(url);
+    // const songData = await songAPIService.getSongFromScreenshotViaGPT(url);
     // Process the song content based on user type - show chords for all instruments except vocals
     const processedContent = formatSongContent(songData.lines, instrument !== 'vocals');
     

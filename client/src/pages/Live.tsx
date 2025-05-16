@@ -51,15 +51,12 @@ export const Live: FC = () => {
 
     // Handle current session state
     socket.on('session:current_state', (songData: SongWithLines) => {
-      console.log('Received current state:', songData)
       setCurrentSong(songData)
       setIsLoading(false)
     })
 
     // Handle song selection updates
     socket.on('session:song_selected', (songData: SongWithLines) => {
-      console.log("📥 Got session:song_selected!", songData);
-      console.log("🧪 Song lines:", songData?.lines);
       setCurrentSong(songData)
       setIsLoading(false)
     })
@@ -78,16 +75,14 @@ export const Live: FC = () => {
       }
     })
 
-    // If admin and we have a song from location state, start the session
+    // If admin and there is a song in the location state, start the session
     if (typedUser?.isAdmin && location.state?.song) {
       const song = location.state.song;
-      console.log('Trying to emit song:select event with:', song)
       if (song.source === 'local') {
         // For local songs, use the song ID
         socket.emit('song:select', song._id || song.url)
       } else {
         // For external songs, use the URL
-        console.log("📤 Emitting song:select with:", song.url);
         socket.emit('song:select', song.url)
       }
     }
@@ -95,8 +90,6 @@ export const Live: FC = () => {
     else if (!typedUser?.isAdmin) {
       socket.emit('session:join')
     }
-
-    setIsLoading(false)
 
     return () => {
       socket.off('session:current_state')
@@ -110,7 +103,6 @@ export const Live: FC = () => {
     if (!socket) return
 
     const handleParticipants = (updatedParticipants: Participant[]) => {
-      console.log('Received participants update:', updatedParticipants)
       setParticipants(updatedParticipants)
     }
 
@@ -177,27 +169,28 @@ export const Live: FC = () => {
     return null;
   };  
   
-  const renderChordLine = (chords: Array<{ text: string; position: number }>) => {
-    const maxPos = Math.max(...chords.map(c => c.position + c.text.length), 30);
-    const lineArr = Array(maxPos).fill(' ');
+  // const renderChordLine = (chords: Array<{ text: string; position: number }>) => {
+  //   const maxPos = Math.max(...chords.map(c => c.position + c.text.length), 30);
+  //   const lineArr = Array(maxPos).fill(' ');
 
-    chords.forEach(({ text, position }) => {
-      if (position < 0 || position >= lineArr.length) return;
-      for (let i = 0; i < text.length; i++) {
-        const idx = position + i;
-        if (idx < lineArr.length) {
-          lineArr[idx] = text[i];
-        }
-      }
-    });
+  //   chords.forEach(({ text, position }) => {
+  //     if (position < 0 || position >= lineArr.length) return;
+  //     for (let i = 0; i < text.length; i++) {
+  //       const idx = position + i;
+  //       if (idx < lineArr.length) {
+  //         lineArr[idx] = text[i];
+  //       }
+  //     }
+  //   });
 
-    return lineArr.join('');
-  }; 
+  //   return lineArr.join('');
+  // }; 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Loading session...</div>
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
+        <div className="text-xl text-blue-600 font-medium">Loading session...</div>
       </div>
     )
   }

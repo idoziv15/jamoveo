@@ -83,6 +83,7 @@ export const Results: FC = () => {
               key={song.url}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
               onClick={() => handleSelectSong(song)}
+              dir={song.source === 'Tab4U' ? 'rtl' : 'ltr'}
             >
               <h2 className="text-xl font-semibold text-gray-800 mb-2">{song.title}</h2>
               <p className="text-gray-600 mb-4">{song.artist}</p>
