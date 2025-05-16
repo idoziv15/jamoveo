@@ -5,7 +5,10 @@ set -e
 
 # Step 1: install server dependencies
 echo "Installing server dependencies..."
+cd server
 npm install
+cd ..
+
 
 # Step 2: build client
 echo "🛠 Building frontend..."
