@@ -1,128 +1,52 @@
-# JaMoveo - Band Management Application
+## How to Use the Application
 
-JaMoveo is a real-time band management application that allows band members to collaborate on songs and manage live sessions.
+### 🧑‍🎤 User Roles
 
-## Features
+There are two main roles in the system:
+- **Admin (band leader)** – controls the live session and song playback.
+- **Player (regular user)** – joins live sessions to play or sing their part.
 
-- User authentication (regular users and admins)
-- Song management (create, read, update, delete)
-- Live session management with real-time collaboration
-- Instrument-specific views
-- Real-time scroll synchronization
-- Comprehensive error handling and logging
+---
 
-## Tech Stack
+### 🎵 Using JaMoveo as an Admin
 
-### Frontend
-- React with TypeScript
-- Vite
-- Tailwind CSS
-- Socket.IO Client
+1. **Login or Register** as an admin.
+2. **Search for a song** using the built-in search bar.
+   - Supports English (Chordie) and Hebrew (Tab4U) songs.
+   - You can also upload a custom song.
+3. **Select a song** to preview its lyrics and chords.
+4. **Click "Start Session"** to begin a live session.
+   - All connected users will see the selected song.
+5. **Control the session**:
+   - Scroll control: lyrics and chords will scroll automatically (if enabled).
+   - You can end the session at any time.
 
-### Backend
-- Node.js
-- Express
-- MongoDB
-- Socket.IO
-- JWT Authentication
-- Winston Logger
+---
 
-## Project Structure
+### 🎸 Using JaMoveo as a Player (Band Member)
 
-```
-jamoveo/
-├── client/             # Frontend React application
-│   ├── src/
-│   ├── public/
-│   └── ...
-├── server/             # Backend Node.js application
-│   ├── config/         # Configuration files
-│   ├── controllers/    # Route controllers
-│   ├── middleware/     # Custom middleware
-│   ├── models/         # Database models
-│   ├── routes/         # API routes
-│   ├── sockets/        # Socket.IO handlers
-│   ├── tests/          # Test files
-│   ├── utils/          # Utility functions
-│   └── ...
-└── docker-compose.yml  # Docker composition file
-```
+1. **Login or Register** with your instrument.
+   - E.g. vocals, guitar, piano, drums, etc.
+2. **Wait for the admin to start a session**.
+3. Once the session starts:
+   - You will automatically be shown the selected song.
+   - **If you are a singer**, chords may be hidden and only lyrics shown.
+   - You can enable/disable **auto-scroll** for hands-free playback.
+4. **Leave the session** anytime with the "Leave Session" button.
 
-## Setup Instructions
+---
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/jamoveo.git
-   cd jamoveo
-   ```
+### 👥 Live Collaboration Features
 
-2. Set up environment variables:
-   - Copy `.env.example` to `.env` in both client and server directories
-   - Update the variables as needed
+- Real-time session sync across all participants.
+- Each participant sees a version of the song suited to their instrument.
+- Admin actions (song selection, session start/end) instantly reflect on all users' screens.
 
-3. Install dependencies:
-   ```bash
-   # Install server dependencies
-   cd server
-   npm install
+---
 
-   # Install client dependencies
-   cd ../client
-   npm install
-   ```
+### 🛠 Example Use Cases
 
-4. Start the development servers:
-   ```bash
-   # Start the backend server
-   cd server
-   npm run dev
+- Band rehearsals with multiple players following a single chart.
+- Choir or vocal ensemble practicing with synchronized lyrics.
+- Small performance setups where an admin leads and others follow.
 
-   # Start the frontend development server
-   cd ../client
-   npm run dev
-   ```
-
-## Running Tests
-
-```bash
-# Run server tests
-cd server
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-```
-
-## Deployment
-
-The application can be deployed using Docker:
-
-```bash
-# Build and start all services
-docker-compose up -d
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f
-```
-
-### Environment Variables
-
-Required environment variables for deployment:
-
-- `NODE_ENV`: Application environment (development/production)
-- `PORT`: Server port
-- `MONGODB_URI`: MongoDB connection string
-- `JWT_SECRET`: Secret key for JWT tokens
-- `CLIENT_URL`: Frontend application URL
-- `CORS_ORIGIN`: Allowed CORS origin
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
