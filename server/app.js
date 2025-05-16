@@ -41,6 +41,11 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
+app.get('/health', (req, res) => {
+  res.send('✅ Server is alive');
+});
+
+
 // Socket.io setup
 handleSocket(io)
 
