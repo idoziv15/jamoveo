@@ -3,7 +3,7 @@ services:
     name: jamoveo
     env: node
     buildCommand: cd server && ./build.sh
-    startCommand: cd server && npm install && node server.js
+    startCommand: cd server && node server.js
     envVars:
       - key: NODE_ENV
         value: production
