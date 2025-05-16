@@ -14,6 +14,7 @@ export const Login: FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    console.log('🔁 Submit triggered')  // ADD THIS
     setError('')
 
     try {
