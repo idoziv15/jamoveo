@@ -22,8 +22,10 @@ const io = new Server(httpServer, {
 })
 
 // Middleware
+const allowedOrigin = process.env.CORS_ORIGIN;
 app.use(cors({
-  origin: config.corsOrigin
+  origin: allowedOrigin,
+  credentials: true,
 }))
 app.use(express.json())
 
