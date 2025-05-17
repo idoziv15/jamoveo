@@ -26,7 +26,7 @@ export const Signup: FC = () => {
     }
 
     try {
-      const response = await fetch('https://jamoveo.onrender.com/auth/signup', {
+      const response = await fetch('https://jamoveo-g2eg.onrender.com/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
