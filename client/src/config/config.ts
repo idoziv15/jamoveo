@@ -1,5 +1,5 @@
 export const config = {
-  socketUrl: "https://jamoveo.onrender.com",
+  socketUrl: "jamoveo-g2eg.onrender.com",
   wsPath: '/socket.io',
-  apiUrl: 'https://jamoveo.onrender.com',
+  apiUrl: 'jamoveo-g2eg.onrender.com',
 } as const; 

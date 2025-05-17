@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client'
 
 // Create socket instance without connecting
-const socket = io(import.meta.env.VITE_SOCKET_URL || 'https://jamoveo.onrender.com', {
+const socket = io(import.meta.env.VITE_SOCKET_URL || 'https://jamoveo-g2eg.onrender.com', {
   autoConnect: false
 })
 

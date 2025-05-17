@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios'
 
 const api = axios.create({
-  baseURL: "https://jamoveo.onrender.com",
+  baseURL: "https://jamoveo-g2eg.onrender.com",
   headers: {
     'Content-Type': 'application/json',
   },

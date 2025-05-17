@@ -20,7 +20,7 @@ export const Login: FC = () => {
 
     try {
       console.log('📤 Sending login request to backend...'); 
-      const response = await fetch('https://jamoveo.onrender.com/auth/login', {
+      const response = await fetch('https://jamoveo-g2eg.onrender.com/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
