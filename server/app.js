@@ -64,11 +64,11 @@ app.use('/songs', songRoutes)
 app.use('/sessions', sessionRoutes)
 
 // Serve static frontend
-const clientBuildPath = path.join(__dirname, 'public');
-app.use(express.static(clientBuildPath));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
-});
+// const clientBuildPath = path.join(__dirname, 'public');
+// app.use(express.static(clientBuildPath));
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(clientBuildPath, 'index.html'));
+// });
 
 // Socket.io setup
 handleSocket(io)
