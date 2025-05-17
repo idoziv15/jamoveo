@@ -30,11 +30,25 @@ const app = express()
 //   next();
 // });
 
+const allowedOrigins = [
+  'https://gregarious-dodol-ce944f.netlify.app',
+  'http://localhost:5173'
+];
+
 app.use(cors({
-  origin: 'https://gregarious-dodol-ce944f.netlify.app',
+  origin: function (origin, callback) {
+    console.log('🔍 Checking origin for CORS:', origin);
+    if (!origin || allowedOrigins.includes(origin)) {
+      console.log('✅ Origin allowed:', origin);
+      callback(null, true);
+    } else {
+      console.warn('❌ Origin blocked by CORS:', origin);
+      callback(new Error('CORS not allowed from this origin'));
+    }
+  },
   credentials: true,
 }));
-// app.options('*', cors())
+
 app.use(express.json())
 
 const httpServer = createServer(app)
