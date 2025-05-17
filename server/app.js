@@ -118,7 +118,23 @@ app.get('/health', (req, res) => {
 // Socket.io setup
 handleSocket(io)
 
+app.use((err, req, res, next) => {
+  console.error('🚨 Server error:', err.message);
+
+  // החזרת הרשאות CORS גם במקרה של שגיאה
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(statusCode).json({
+    status: 'error',
+    message,
+  });
+});
+
 // Error handling
-app.use(errorHandler)
+// app.use(errorHandler)
 
 module.exports = { app, httpServer } 
