@@ -35,10 +35,11 @@ const allowedOrigins = [
   'http://localhost:5173'
 ];
 
+// Allow Netlify preview URLs dynamically:
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🔍 Checking origin for CORS:', origin);
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || /\.netlify\.app$/.test(origin)) {
       console.log('✅ Origin allowed:', origin);
       callback(null, true);
     } else {
