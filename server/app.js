@@ -50,6 +50,28 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use((req, res, next) => {
+  console.log('📥 New Incoming Request:');
+  console.log('🔹 Method:', req.method);
+  console.log('🔹 URL:', req.originalUrl);
+  console.log('🔹 Origin:', req.headers.origin);
+  console.log('🔹 Headers:', req.headers);
+  console.log('🔹 Query Params:', req.query);
+  
+  // Try to show JSON body if present
+  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+    console.log('🔹 Body:', req.body);
+  }
+
+  // If there are cookies
+  if (req.headers.cookie) {
+    console.log('🔹 Cookies:', req.headers.cookie);
+  }
+
+  console.log('------------------------------------');
+  next();
+});
+
 app.use(express.json())
 
 const httpServer = createServer(app)
