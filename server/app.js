@@ -19,16 +19,16 @@ const app = express()
 //   allowedHeaders: ['Content-Type', 'Authorization'],
 //   credentials: true,
 // }))
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  next();
-});
+// app.use((req, res, next) => {
+//   res.header('Access-Control-Allow-Origin', '*');
+//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+//   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+//   res.header('Access-Control-Allow-Credentials', 'true');
+//   if (req.method === 'OPTIONS') {
+//     return res.sendStatus(204);
+//   }
+//   next();
+// });
 // app.options('*', cors())
 app.use(express.json())
 
@@ -36,12 +36,12 @@ const httpServer = createServer(app)
 
 
 const io = new Server(httpServer, {
-  cors: {
-    origin: '*',            // allow all origins
-    methods: ['GET', 'POST'], // allow these methods
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false        // no cookies/tokens needed
-  }
+  // cors: {
+  //   origin: '*',            // allow all origins
+  //   methods: ['GET', 'POST'], // allow these methods
+  //   allowedHeaders: ['Content-Type', 'Authorization'],
+  //   credentials: false        // no cookies/tokens needed
+  // }
 })
 
 // const io = new Server(httpServer, {
