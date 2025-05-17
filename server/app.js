@@ -62,6 +62,9 @@ const io = new Server(httpServer, {
 app.use('/auth', authRoutes)
 app.use('/songs', songRoutes)
 app.use('/sessions', sessionRoutes)
+app.get('/health', (req, res) => {
+  res.send('✅ Server is alive');
+});
 
 // Serve static frontend
 // const clientBuildPath = path.join(__dirname, 'public');
