@@ -29,6 +29,11 @@ const app = express()
 //   }
 //   next();
 // });
+
+app.use(cors({
+  origin: 'https://gregarious-dodol-ce944f.netlify.app',
+  credentials: true,
+}));
 // app.options('*', cors())
 app.use(express.json())
 
