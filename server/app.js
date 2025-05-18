@@ -36,15 +36,28 @@ app.use(express.json())
 
 const httpServer = createServer(app)
 
-
 const io = new Server(httpServer, {
-  // cors: {
-  //   origin: '*',            // allow all origins
-  //   methods: ['GET', 'POST'], // allow these methods
-  //   allowedHeaders: ['Content-Type', 'Authorization'],
-  //   credentials: false        // no cookies/tokens needed
-  // }
-})
+  cors: {
+    origin: function (origin, callback) {
+      console.log('🔍 [Socket.IO] Checking origin for CORS:', origin);
+      const allowedOrigins = [
+        'https://gregarious-dodol-ce944f.netlify.app',
+        'https://jamoveo-g2eg.onrender.com',
+        'http://localhost:5173',
+      ];
+      if (!origin || allowedOrigins.includes(origin) || /\.netlify\.app$/.test(origin)) {
+        console.log('✅ [Socket.IO] Origin allowed:', origin);
+        callback(null, true);
+      } else {
+        console.warn('❌ [Socket.IO] Origin blocked:', origin);
+        callback(new Error('CORS not allowed for Socket.IO'));
+      }
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+  }
+});
+
 
 // const io = new Server(httpServer, {
 //   cors: {
