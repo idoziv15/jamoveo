@@ -146,7 +146,11 @@ class SongAPIService {
    * @returns {Promise<Array>} An array of song details
    */
   async scrapeTab4U(query) {
-    const browser = await puppeteer.launch({ headless: "new" });
+    const browser = await puppeteer.launch({
+      headless: "new",
+      executablePath: '/opt/render/project/.cache/puppeteer/chrome/linux-136.0.7103.92/chrome-linux64/chrome',
+    })
+    
     let page;
 
     try {
@@ -383,54 +387,58 @@ class SongAPIService {
    * @returns {Promise<Object>} The song details
    */
   async getRemoteSongDetailsWithPuppeteer(url) {
-  const browser = await puppeteer.launch({ headless: "new" });
-  const page = await browser.newPage();
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    const browser = await puppeteer.launch({
+      headless: "new",
+      executablePath: '/opt/render/project/.cache/puppeteer/chrome/linux-136.0.7103.92/chrome-linux64/chrome',
+    })
+    
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-  const result = await page.evaluate(() => {
-    const title = document.querySelector('h1')?.innerText.trim() || 'Unknown Title';
-    const artist = document.querySelector('h2')?.innerText.trim() || 'Unknown Artist';
+    const result = await page.evaluate(() => {
+      const title = document.querySelector('h1')?.innerText.trim() || 'Unknown Title';
+      const artist = document.querySelector('h2')?.innerText.trim() || 'Unknown Artist';
 
-    const lines = [];
+      const lines = [];
 
-    const chordlineDivs = Array.from(document.querySelectorAll('div.chordline'));
-    chordlineDivs.forEach(div => {
-      const chords = [];
-      let lyrics = '';
-      let cursor = 0;
+      const chordlineDivs = Array.from(document.querySelectorAll('div.chordline'));
+      chordlineDivs.forEach(div => {
+        const chords = [];
+        let lyrics = '';
+        let cursor = 0;
 
-      div.childNodes.forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) {
-          // Add plain text to lyrics
-          lyrics += node.textContent;
-          cursor = lyrics.length;
-        } else if (
-          node.nodeType === Node.ELEMENT_NODE &&
-          node.classList.contains('relc') || node.classList.contains('inlc')
-        ) {
-          const chordText = node.textContent.trim();
-          if (chordText) {
-            chords.push({
-              text: chordText,
-              position: cursor
-            });
+        div.childNodes.forEach(node => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            // Add plain text to lyrics
+            lyrics += node.textContent;
+            cursor = lyrics.length;
+          } else if (
+            node.nodeType === Node.ELEMENT_NODE &&
+            node.classList.contains('relc') || node.classList.contains('inlc')
+          ) {
+            const chordText = node.textContent.trim();
+            if (chordText) {
+              chords.push({
+                text: chordText,
+                position: cursor
+              });
+            }
           }
+        });
+
+        if (lyrics.trim() || chords.length > 0) {
+          lines.push({ lyrics: lyrics.trim(), chords });
         }
       });
 
-      if (lyrics.trim() || chords.length > 0) {
-        lines.push({ lyrics: lyrics.trim(), chords });
-      }
-    });
-
-    return {
-      title,
-      artist,
-      lines,
-      hasChords: lines.some(l => l.chords?.length),
-      source: 'Chordie.com',
-      url: window.location.href
-    };
+      return {
+        title,
+        artist,
+        lines,
+        hasChords: lines.some(l => l.chords?.length),
+        source: 'Chordie.com',
+        url: window.location.href
+      };
   });
 
   await browser.close();
