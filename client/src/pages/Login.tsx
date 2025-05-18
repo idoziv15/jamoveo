@@ -16,7 +16,7 @@ export const Login: FC = () => {
     e.preventDefault()
     setError('')
 
-    try { 
+    try {
       const response = await fetch('https://jamoveo-g2eg.onrender.com/auth/login', {
         method: 'POST',
         headers: {
@@ -27,7 +27,7 @@ export const Login: FC = () => {
       })
       if (!response.ok) {
         const text = await response.text();
-        console.log('❌ Bad response:', text); 
+        console.log('Bad response:', text); 
         throw new Error('Login failed')
       }
 

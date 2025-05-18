@@ -2,7 +2,6 @@ const express = require('express')
 const cors = require('cors')
 const { createServer } = require('http')
 const { Server } = require('socket.io')
-const path = require('path');
 const config = require('./config/config')
 const errorHandler = require('./middleware/errorHandler')
 
@@ -13,29 +12,12 @@ const sessionRoutes = require('./routes/sessionRoutes')
 const handleSocket = require('./sockets/socketHandler')
 
 const app = express()
-// app.use(cors({
-//   origin: '*',
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization'],
-//   credentials: true,
-// }))
-// app.use((req, res, next) => {
-//   res.header('Access-Control-Allow-Origin', '*');
-//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-//   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-//   res.header('Access-Control-Allow-Credentials', 'true');
-//   if (req.method === 'OPTIONS') {
-//     return res.sendStatus(204);
-//   }
-//   next();
-// });
 
 const allowedOrigins = [
   'https://gregarious-dodol-ce944f.netlify.app',
   'http://localhost:5173'
 ];
 
-// Allow Netlify preview URLs dynamically:
 app.use(cors({
   origin: function (origin, callback) {
     console.log('🔍 Checking origin for CORS:', origin);
@@ -49,28 +31,6 @@ app.use(cors({
   },
   credentials: true,
 }));
-
-app.use((req, res, next) => {
-  console.log('📥 New Incoming Request:');
-  console.log('🔹 Method:', req.method);
-  console.log('🔹 URL:', req.originalUrl);
-  console.log('🔹 Origin:', req.headers.origin);
-  console.log('🔹 Headers:', req.headers);
-  console.log('🔹 Query Params:', req.query);
-  
-  // Try to show JSON body if present
-  if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-    console.log('🔹 Body:', req.body);
-  }
-
-  // If there are cookies
-  if (req.headers.cookie) {
-    console.log('🔹 Cookies:', req.headers.cookie);
-  }
-
-  console.log('------------------------------------');
-  next();
-});
 
 app.use(express.json())
 
@@ -92,13 +52,6 @@ const io = new Server(httpServer, {
 //     methods: ['GET', 'POST']
 //   }
 // })
-
-// Middleware
-// const allowedOrigin = process.env.CORS_ORIGIN;
-// app.use(cors({
-//   origin: process.env.CORS_ORIGIN || true,
-//   credentials: true,
-// }))
 
 // Routes
 app.use('/auth', authRoutes)
@@ -135,6 +88,6 @@ app.use((err, req, res, next) => {
 });
 
 // Error handling
-// app.use(errorHandler)
+app.use(errorHandler)
 
 module.exports = { app, httpServer } 
