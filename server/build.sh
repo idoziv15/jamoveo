@@ -9,6 +9,7 @@ npm install
 
 # Install Chromium for Puppeteer
 echo "Installing Chromium for Puppeteer..."
+export PUPPETEER_CACHE_DIR=/opt/render/project/.cache/puppeteer
 npx puppeteer browsers install chrome
 
 # Build client

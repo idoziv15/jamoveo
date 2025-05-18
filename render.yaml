@@ -15,3 +15,5 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/.cache/puppeteer
